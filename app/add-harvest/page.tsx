@@ -151,11 +151,11 @@ export default function AddHarvestPage() {
       // Generate blockchain transaction
       const blockchainTx = generateBlockchainTransaction()
 
-      // Create harvest record
-      const harvestRecord: HarvestRecord = {
+   // Create harvest record
+const harvestRecord: HarvestRecord = {
   id: Math.random().toString(36).substr(2, 9),
-  farmer_id: farmer.id,
-  farmer_name: farmer.name,  // ✅ added
+  farmer_id: farmer.id,          // ✅ stable phone-based id
+  farmer_name: farmer.name,      // ✅ keep name for migration/display
   herb_name: herbName,
   quantity_kg: quantity,
   quality_score: qualityScore[0],
@@ -164,10 +164,11 @@ export default function AddHarvestPage() {
   photo_url: photoPreview || undefined,
   gps_coordinates: gpsCoordinates!,
   blockchain_tx: blockchainTx,
-  ai_verified: !!photoFile,
+  ai_verified: !!photoFile,      // mock AI verification
   recalled: false,
   created_at: new Date().toISOString(),
-}
+};
+
 
 
       // Save to ledger

@@ -1,45 +1,78 @@
-"use client"
-import { loadLedger } from "@/lib/storage";
+"use client";
+import { getFarmerRecords, migrateLedgerForFarmer } from "@/lib/blockchain";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getCurrentFarmer, clearCurrentFarmer, type Farmer } from "@/lib/storage"
-import { getLedgerRecords } from "@/lib/blockchain"
-import { Plus, FileText, LogOut, Leaf, BarChart3 } from "lucide-react"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCurrentFarmer, clearCurrentFarmer, type Farmer } from "@/lib/storage";
+import { getLedgerRecords } from "@/lib/blockchain";
+import { Plus, FileText, LogOut, Leaf, BarChart3 } from "lucide-react";
 
 export default function DashboardPage() {
-  const [farmer, setFarmer] = useState<Farmer | null>(null)
-  const [recordCount, setRecordCount] = useState(0)
-  const router = useRouter()
+  const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [recordCount, setRecordCount] = useState(0);
+  const router = useRouter();
 
+  // Load farmer + compute record count
   useEffect(() => {
-    const currentFarmer = getCurrentFarmer()
-    if (!currentFarmer) {
-      router.push("/login")
-      return
+  const currentFarmer = getCurrentFarmer();
+  if (!currentFarmer) {
+    router.push("/login");
+    return;
+  }
+  setFarmer(currentFarmer);
+
+  // ✅ migrate legacy records once for this farmer
+  migrateLedgerForFarmer({ id: currentFarmer.id, name: currentFarmer.name });
+
+  // then compute count from unified source
+  const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
+  setRecordCount(mine.length);
+
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === "ledger") {
+      const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
+      setRecordCount(mine.length);
     }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
+}, [router]);
 
-    setFarmer(currentFarmer)
+    setFarmer(currentFarmer);
+    computeCount(currentFarmer);
 
-    // Count records for this farmer
-    const allRecords = getLedgerRecords()
-    const farmerRecords = allRecords.filter((record) => record.farmer_id === currentFarmer.id)
-    setRecordCount(farmerRecords.length)
-  }, [router])
+    // Optional: update when localStorage changes (another tab / after adding harvest)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "ledger") computeCount(currentFarmer);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [router]);
+
+  function computeCount(currentFarmer: Farmer) {
+    const all = getLedgerRecords();
+    // ✅ show records created either with same farmer_id (phone) OR farmer_name (legacy)
+    const mine = all.filter(
+      (r: any) =>
+        r.farmer_id === currentFarmer.id ||
+        (r.farmer_name && r.farmer_name.trim().toLowerCase() === currentFarmer.name.trim().toLowerCase())
+    );
+    setRecordCount(mine.length);
+  }
 
   const handleLogout = () => {
-    clearCurrentFarmer()
-    router.push("/login")
-  }
+    clearCurrentFarmer();
+    router.push("/login");
+  };
 
   if (!farmer) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -72,6 +105,7 @@ export default function DashboardPage() {
               <BarChart3 className="h-5 w-5" />
               Your Activity
             </CardTitle>
+            <CardDescription>Persistent across sessions for the same farmer (phone-based ID)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
@@ -80,7 +114,9 @@ export default function DashboardPage() {
                 <div className="text-sm text-muted-foreground">Total Harvests</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-secondary">{recordCount > 0 ? "Active" : "New"}</div>
+                <div className="text-3xl font-bold text-secondary">
+                  {recordCount > 0 ? "Active" : "New"}
+                </div>
                 <div className="text-sm text-muted-foreground">Status</div>
               </div>
             </div>
@@ -89,10 +125,7 @@ export default function DashboardPage() {
 
         {/* Action Cards */}
         <div className="grid gap-6 md:grid-cols-2">
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => router.push("/add-harvest")}
-          >
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push("/add-harvest")}>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
                 <div className="p-2 bg-primary rounded-lg">
@@ -124,20 +157,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Info Section */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>About SwasthChain</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground leading-relaxed">
-              SwasthChain ensures the authenticity and traceability of Ayurvedic herbs through blockchain technology.
-              Each harvest is recorded with immutable proof, providing transparency from farm to consumer.
-            </p>
-          </CardContent>
-        </Card>
       </main>
     </div>
-  )
+  );
 }
