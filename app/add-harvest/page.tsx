@@ -1,208 +1,155 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { getCurrentFarmer, type Farmer } from "@/lib/storage"
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { getCurrentFarmer, type Farmer } from "@/lib/storage";
 import {
   validateHarvestData,
   generateBlockchainTransaction,
   saveLedgerRecord,
   type HarvestRecord,
-} from "@/lib/blockchain"
-import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, MapPin, Camera, CheckCircle } from "lucide-react"
+} from "@/lib/blockchain";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, MapPin, Camera, CheckCircle } from "lucide-react";
 
-const HERB_OPTIONS = ["Ashwagandha", "Tulsi", "Amla"]
+const HERB_OPTIONS = ["Ashwagandha", "Tulsi", "Amla"];
 
 export default function AddHarvestPage() {
-  const [farmer, setFarmer] = useState<Farmer | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isCapturingLocation, setIsCapturingLocation] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
+  const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   // Form state
-  const [herbName, setHerbName] = useState("")
-  const [quantityKg, setQuantityKg] = useState("")
-  const [qualityScore, setQualityScore] = useState([3])
-  const [moisturePercent, setMoisturePercent] = useState("")
-  const [notes, setNotes] = useState("")
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [gpsCoordinates, setGpsCoordinates] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [herbName, setHerbName] = useState("");
+  const [quantityKg, setQuantityKg] = useState("");
+  const [qualityScore, setQualityScore] = useState<number[]>([3]);
+  const [moisturePercent, setMoisturePercent] = useState("");
+  const [notes, setNotes] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [gpsCoordinates, setGpsCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
-    const currentFarmer = getCurrentFarmer()
+    const currentFarmer = getCurrentFarmer();
     if (!currentFarmer) {
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
-    setFarmer(currentFarmer)
-  }, [router])
+    setFarmer(currentFarmer);
+  }, [router]);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      setPhotoFile(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setPhotoPreview(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   const captureLocation = () => {
     if (!navigator.geolocation) {
-      toast({
-        title: "Error",
-        description: "Geolocation is not supported by this browser",
-        variant: "destructive",
-      })
-      return
+      toast({ title: "Error", description: "Geolocation is not supported by this browser", variant: "destructive" });
+      return;
     }
 
-    setIsCapturingLocation(true)
+    setIsCapturingLocation(true);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setGpsCoordinates({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        })
-        setIsCapturingLocation(false)
+        setGpsCoordinates({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        setIsCapturingLocation(false);
         toast({
           title: "Location Captured",
           description: `Lat: ${position.coords.latitude.toFixed(6)}, Lng: ${position.coords.longitude.toFixed(6)}`,
-        })
+        });
       },
-      (error) => {
-        setIsCapturingLocation(false)
-        toast({
-          title: "Location Error",
-          description: "Failed to capture location. Please try again.",
-          variant: "destructive",
-        })
-        console.error("Geolocation error:", error)
+      () => {
+        setIsCapturingLocation(false);
+        toast({ title: "Location Error", description: "Failed to capture location. Please try again.", variant: "destructive" });
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      },
-    )
-  }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!farmer) return;
 
-    if (!farmer) return
-
-    // Basic form validation
     if (!herbName || !quantityKg || !moisturePercent) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      return
+      toast({ title: "Error", description: "Please fill in all required fields", variant: "destructive" });
+      return;
     }
 
-    const quantity = Number.parseFloat(quantityKg)
-    const moisture = Number.parseFloat(moisturePercent)
-
-    if (isNaN(quantity) || isNaN(moisture)) {
-      toast({
-        title: "Error",
-        description: "Please enter valid numbers for quantity and moisture",
-        variant: "destructive",
-      })
-      return
+    const quantity = Number.parseFloat(quantityKg);
+    const moisture = Number.parseFloat(moisturePercent);
+    if (Number.isNaN(quantity) || Number.isNaN(moisture)) {
+      toast({ title: "Error", description: "Please enter valid numbers for quantity and moisture", variant: "destructive" });
+      return;
     }
 
-    // Smart contract validation
     const validation = validateHarvestData({
       quantity_kg: quantity,
       moisture_percent: moisture,
-      gps_coordinates: gpsCoordinates,
-    })
-
+      gps_coordinates: gpsCoordinates ?? undefined,
+    });
     if (!validation.valid) {
-      toast({
-        title: "Validation Failed",
-        description: validation.error,
-        variant: "destructive",
-      })
-      return
+      toast({ title: "Validation Failed", description: validation.error, variant: "destructive" });
+      return;
     }
 
-    setIsLoading(true)
-
+    setIsLoading(true);
     try {
-      // Generate blockchain transaction
-      const blockchainTx = generateBlockchainTransaction()
+      const blockchainTx = generateBlockchainTransaction();
 
-   // Create harvest record
-const harvestRecord: HarvestRecord = {
-  id: Math.random().toString(36).substr(2, 9),
-  farmer_id: farmer.id,          // ✅ stable phone-based id
-  farmer_name: farmer.name,      // ✅ keep name for migration/display
-  herb_name: herbName,
-  quantity_kg: quantity,
-  quality_score: qualityScore[0],
-  moisture_percent: moisture,
-  notes: notes.trim(),
-  photo_url: photoPreview || undefined,
-  gps_coordinates: gpsCoordinates!,
-  blockchain_tx: blockchainTx,
-  ai_verified: !!photoFile,      // mock AI verification
-  recalled: false,
-  created_at: new Date().toISOString(),
-};
+      const harvestRecord: HarvestRecord = {
+        id: Math.random().toString(36).substr(2, 9),
+        farmer_id: farmer.id,      // phone-based identity
+        farmer_name: farmer.name,
+        herb_name: herbName,
+        quantity_kg: quantity,
+        quality_score: qualityScore[0],
+        moisture_percent: moisture,
+        notes: notes.trim(),
+        photo_url: photoPreview || undefined,
+        gps_coordinates: gpsCoordinates!, // safe due to validation above
+        blockchain_tx: blockchainTx,
+        ai_verified: !!photoFile,
+        recalled: false,
+        created_at: new Date().toISOString(),
+      };
 
+      saveLedgerRecord(harvestRecord);
 
-
-      // Save to ledger
-      saveLedgerRecord(harvestRecord)
-
-      toast({
-        title: "Success!",
-        description: "Harvest recorded on blockchain",
-      })
-
-      // Redirect to success page
-      router.push(`/success?block_id=${blockchainTx.block_id}&tx=${blockchainTx.tx_hash}`)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to record harvest. Please try again.",
-        variant: "destructive",
-      })
+      toast({ title: "Success!", description: "Harvest recorded on blockchain" });
+      router.push(`/success?block_id=${blockchainTx.block_id}&tx=${blockchainTx.tx_hash}`);
+    } catch {
+      toast({ title: "Error", description: "Failed to record harvest. Please try again.", variant: "destructive" });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (!farmer) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="bg-card border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
@@ -215,7 +162,6 @@ const harvestRecord: HarvestRecord = {
         </div>
       </header>
 
-      {/* Form */}
       <main className="max-w-2xl mx-auto px-4 py-8">
         <Card>
           <CardHeader>
@@ -227,7 +173,7 @@ const harvestRecord: HarvestRecord = {
               {/* Herb Selection */}
               <div className="space-y-2">
                 <Label htmlFor="herb">Herb Name *</Label>
-                <Select value={herbName} onValueChange={setHerbName} required>
+                <Select value={herbName} onValueChange={(v) => setHerbName(v)} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select an herb" />
                   </SelectTrigger>
@@ -261,14 +207,7 @@ const harvestRecord: HarvestRecord = {
               {/* Quality Score */}
               <div className="space-y-3">
                 <Label>Quality Score: {qualityScore[0]}/5</Label>
-                <Slider
-                  value={qualityScore}
-                  onValueChange={setQualityScore}
-                  max={5}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
+                <Slider value={qualityScore} onValueChange={(v) => setQualityScore(v)} max={5} min={1} step={1} />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Poor (1)</span>
                   <span>Excellent (5)</span>
@@ -367,5 +306,5 @@ const harvestRecord: HarvestRecord = {
         </Card>
       </main>
     </div>
-  )
+  );
 }
