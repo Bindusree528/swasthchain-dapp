@@ -17,10 +17,23 @@ export default function DashboardPage() {
   // Load farmer + compute record count
   useEffect(() => {
   const currentFarmer = getCurrentFarmer();
-  if (!currentFarmer) {
-    router.push("/login");
-    return;
+  if (!currentFarmer) { router.push("/login"); return; }
+  setFarmer(currentFarmer);
+
+  migrateLedgerForFarmer({ id: currentFarmer.id, name: currentFarmer.name });
+  const setCount = () => {
+    const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
+    setRecordCount(mine.length);
+  };
+  setCount();
+
+  if (typeof window !== "undefined") {
+    const onStorage = (e: any) => { if (e.key === "ledger") setCount(); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }
+}, [router]);
+
   setFarmer(currentFarmer);
 
   // ✅ migrate legacy records once for this farmer
@@ -30,7 +43,7 @@ export default function DashboardPage() {
   const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
   setRecordCount(mine.length);
 
-  const onStorage = (e: StorageEvent) => {
+  const onStorage = (e: any) => {
     if (e.key === "ledger") {
       const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
       setRecordCount(mine.length);
