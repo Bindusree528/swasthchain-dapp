@@ -1,12 +1,11 @@
 "use client";
-import { getFarmerRecords, migrateLedgerForFarmer } from "@/lib/blockchain";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentFarmer, clearCurrentFarmer, type Farmer } from "@/lib/storage";
-import { getLedgerRecords } from "@/lib/blockchain";
+import { getFarmerRecords, migrateLedgerForFarmer } from "@/lib/blockchain";
 import { Plus, FileText, LogOut, Leaf, BarChart3 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -14,66 +13,39 @@ export default function DashboardPage() {
   const [recordCount, setRecordCount] = useState(0);
   const router = useRouter();
 
-  // Load farmer + compute record count
   useEffect(() => {
-  const currentFarmer = getCurrentFarmer();
-  if (!currentFarmer) { router.push("/login"); return; }
-  setFarmer(currentFarmer);
+    const currentFarmer = getCurrentFarmer();
+    if (!currentFarmer) {
+      router.push("/login");
+      return;
+    }
+    setFarmer(currentFarmer);
 
-  migrateLedgerForFarmer({ id: currentFarmer.id, name: currentFarmer.name });
-  const setCount = () => {
-    const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
-    setRecordCount(mine.length);
-  };
-  setCount();
+    // Migrate legacy records (old random IDs) to stable phone-based ID
+    migrateLedgerForFarmer({ id: currentFarmer.id, name: currentFarmer.name });
 
-  if (typeof window !== "undefined") {
-    const onStorage = (e: any) => { if (e.key === "ledger") setCount(); };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }
-}, [router]);
-
-  setFarmer(currentFarmer);
-
-  // ✅ migrate legacy records once for this farmer
-  migrateLedgerForFarmer({ id: currentFarmer.id, name: currentFarmer.name });
-
-  // then compute count from unified source
-  const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
-  setRecordCount(mine.length);
-
-  const onStorage = (e: any) => {
-    if (e.key === "ledger") {
+    // Helper to compute count from unified source
+    const compute = () => {
       const mine = getFarmerRecords({ id: currentFarmer.id, name: currentFarmer.name });
       setRecordCount(mine.length);
-    }
-  };
-  window.addEventListener("storage", onStorage);
-  return () => window.removeEventListener("storage", onStorage);
-}, [router]);
-
-    setFarmer(currentFarmer);
-    computeCount(currentFarmer);
-
-    // Optional: update when localStorage changes (another tab / after adding harvest)
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "ledger") computeCount(currentFarmer);
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [router]);
 
-  function computeCount(currentFarmer: Farmer) {
-    const all = getLedgerRecords();
-    // ✅ show records created either with same farmer_id (phone) OR farmer_name (legacy)
-    const mine = all.filter(
-      (r: any) =>
-        r.farmer_id === currentFarmer.id ||
-        (r.farmer_name && r.farmer_name.trim().toLowerCase() === currentFarmer.name.trim().toLowerCase())
-    );
-    setRecordCount(mine.length);
-  }
+    compute();
+
+    // Listen for ledger changes (e.g., after adding harvest)
+    if (typeof window !== "undefined") {
+      const onStorage = (e: any) => {
+        if (e.key === "ledger") compute();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+
+    // SSR safety: provide a cleanup even if window is undefined
+    return () => {};
+  }, [router]);
 
   const handleLogout = () => {
     clearCurrentFarmer();
@@ -111,7 +83,6 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Stats Card */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -136,7 +107,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Action Cards */}
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push("/add-harvest")}>
             <CardHeader>
