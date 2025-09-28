@@ -153,20 +153,22 @@ export default function AddHarvestPage() {
 
       // Create harvest record
       const harvestRecord: HarvestRecord = {
-        id: Math.random().toString(36).substr(2, 9),
-        farmer_id: farmer.id,
-        herb_name: herbName,
-        quantity_kg: quantity,
-        quality_score: qualityScore[0],
-        moisture_percent: moisture,
-        notes: notes.trim(),
-        photo_url: photoPreview || undefined,
-        gps_coordinates: gpsCoordinates!,
-        blockchain_tx: blockchainTx,
-        ai_verified: !!photoFile, // Mock AI verification if photo is uploaded
-        recalled: false,
-        created_at: new Date().toISOString(),
-      }
+  id: Math.random().toString(36).substr(2, 9),
+  farmer_id: farmer.id,
+  farmer_name: farmer.name,  // ✅ added
+  herb_name: herbName,
+  quantity_kg: quantity,
+  quality_score: qualityScore[0],
+  moisture_percent: moisture,
+  notes: notes.trim(),
+  photo_url: photoPreview || undefined,
+  gps_coordinates: gpsCoordinates!,
+  blockchain_tx: blockchainTx,
+  ai_verified: !!photoFile,
+  recalled: false,
+  created_at: new Date().toISOString(),
+}
+
 
       // Save to ledger
       saveLedgerRecord(harvestRecord)

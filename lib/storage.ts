@@ -5,13 +5,22 @@ export interface Farmer {
   created_at: string
 }
 
+// ✅ Keep the same farmer record if they already exist (avoid new ID)
 export function saveFarmer(farmer: Omit<Farmer, "id" | "created_at">): Farmer {
+  const existing = localStorage.getItem(`farmer_${farmer.phone}`)
+  if (existing) {
+    const parsed = JSON.parse(existing)
+    localStorage.setItem("current_farmer", JSON.stringify(parsed))
+    return parsed
+  }
+
   const newFarmer: Farmer = {
-    id: Math.random().toString(36).substr(2, 9),
+    id: farmer.phone, // Use phone as unique ID
     ...farmer,
     created_at: new Date().toISOString(),
   }
 
+  localStorage.setItem(`farmer_${farmer.phone}`, JSON.stringify(newFarmer))
   localStorage.setItem("current_farmer", JSON.stringify(newFarmer))
   return newFarmer
 }

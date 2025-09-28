@@ -9,6 +9,7 @@ export interface BlockchainTransaction {
 export interface HarvestRecord {
   id: string
   farmer_id: string
+  farmer_name: string      // ✅ added
   herb_name: string
   quantity_kg: number
   quality_score: number
@@ -44,18 +45,9 @@ export function validateHarvestData(data: {
   moisture_percent: number
   gps_coordinates?: { latitude: number; longitude: number }
 }): { valid: boolean; error?: string } {
-  if (data.quantity_kg > 50) {
-    return { valid: false, error: "Quantity cannot exceed 50 kg" }
-  }
-
-  if (data.moisture_percent > 15) {
-    return { valid: false, error: "Moisture percentage cannot exceed 15%" }
-  }
-
-  if (!data.gps_coordinates) {
-    return { valid: false, error: "GPS coordinates are required" }
-  }
-
+  if (data.quantity_kg > 50) return { valid: false, error: "Quantity cannot exceed 50 kg" }
+  if (data.moisture_percent > 15) return { valid: false, error: "Moisture percentage cannot exceed 15%" }
+  if (!data.gps_coordinates) return { valid: false, error: "GPS coordinates are required" }
   return { valid: true }
 }
 
@@ -71,6 +63,8 @@ export function getLedgerRecords(): HarvestRecord[] {
 
 export function updateRecordRecallStatus(recordId: string, recalled: boolean): void {
   const ledger = getLedgerRecords()
-  const updatedLedger = ledger.map((record) => (record.id === recordId ? { ...record, recalled } : record))
+  const updatedLedger = ledger.map((record) =>
+    record.id === recordId ? { ...record, recalled } : record
+  )
   localStorage.setItem("ledger", JSON.stringify(updatedLedger))
 }
